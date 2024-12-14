@@ -1,26 +1,29 @@
 use std::char;
 
-enum Parts {
+pub(crate) enum Parts {
     Character(Character),
     Group(Group),
+    Modifier(Modifier),
+    Term(Term),
+    Expression(Expression),
     Other,
 }
-struct Character{
-    content: Option<char>,
+pub(crate) struct Character{
+    pub(crate) content: Option<char>,
 }
-struct Modifier{
-    content: Option<char>,
+pub(crate) struct Modifier{
+    pub(crate) content: Option<char>,
 }
-struct Group{
-    content: Box<Option<Expression>>,
+pub(crate) struct Group{
+    pub(crate) content: Box<Option<Expression>>,
 }
-struct Term{
-    content: Box<Option<Parts>>,
-    next: Option<Modifier>,
+pub(crate) struct Term{
+    pub(crate) content: Box<Option<Parts>>,
+    pub(crate) next: Option<Modifier>,
 }
 pub struct Expression{
-    content: Box<Option<Term>>,
-    next: Box<Option<Expression>>,
+    pub(crate) content: Box<Option<Term>>,
+    pub(crate) next: Box<Option<Expression>>,
 }
 // Expression := Term Expression | None
 // Term := Group Modifier | None

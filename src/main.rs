@@ -1,5 +1,7 @@
-pub mod parser;
-pub mod compiler;
+#[path = "regex/parser.rs"]
+mod parser;
+#[path = "regex/compiler.rs"]
+mod compiler;
 
 
 fn main() {
