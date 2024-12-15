@@ -1,267 +1,421 @@
-use std::char;
 
-pub(crate) enum Parts {
+pub(crate) enum Parts{
     Character(Character),
-    Group(Group),
     Modifier(Modifier),
+    Group(Group),
     Term(Term),
     Expression(Expression),
+    Alternator(Alternator),
+    Regex(Regex),
     Other,
 }
 pub(crate) struct Character{
-    pub(crate) content: Option<char>,
+    // can have 
+    // characters: a, b, c, etc..
+    // char types: \d for digit, \w for word character
+    // character classes: [AEIOU] for one letter in the class
+    content: String,
+    not: bool,
+
 }
 pub(crate) struct Modifier{
-    pub(crate) content: Option<char>,
+    // can have
+    // + : 1 or more
+    // ? : 0 or 1
+    // * : 0 or more
+    // {x, y} : range between x and y times
+    // ? : after a modifier, makes it lazy
+    start: i32, // has to have at least this many
+    end: i32, // -1 means it is just more
+    greedy: bool, // stops as soon as possible
+
 }
 pub(crate) struct Group{
-    pub(crate) content: Box<Option<Expression>>,
+    // can have
+    // ( ... ) : capturing
+    // (?: ... ) : non capturing
+    content: Regex,
+    capturing: bool,
 }
 pub(crate) struct Term{
-    pub(crate) content: Box<Option<Parts>>,
-    pub(crate) next: Option<Modifier>,
+    // Group + Modifier | None
+    // Character + Modifier | None
+    content: Box<Parts>,
+    modif: Option<Modifier>,
 }
-pub struct Expression{
-    pub(crate) content: Box<Option<Term>>,
-    pub(crate) next: Box<Option<Expression>>,
+pub(crate) struct Expression{
+    // Term + Expression | None
+    content: Term,
+    next: Box<Option<Expression>>,
+
 }
-// Expression := Term Expression | None
-// Term := Group Modifier | None
-// Term := Character Modifier | None
-//
-// Term := Parts Modifier | None
-//
-//
-// TODO things to implemet
-// |
-// \
-// \special chars like \d
-// non capturing groups
-// character classes
-
-
-impl Parts{
-    fn parse(&mut self, str: String) -> String{
-        let first = str.chars().next();
-        match self{
-            Self::Character(a) =>{
-                a.character(str)
-            }
-            Self::Group(a) => {
-                a.group(str)
-            }
-            _ => {
-                // nothing, try to parse highest level
-                // if (, parse as group
-                // else parse as character
-                match first{
-                    Some('(') => {
-                        *self = Self::Group(Group{content: Box::new(None)});
-                        self.parse(str)
-                    },
-                    Some(_) => {
-                        *self = Self::Character(Character{content: None});
-                        self.parse(str)
+pub(crate) struct Alternator{
+    // lhs | rhs
+    // checks if matches either
+    // both are expressions
+    lhs: Expression,
+    rhs: Option<Expression>,
+}
+pub struct Regex{
+    content: Alternator,
+}
+impl Character{
+    fn new(str: String) -> (Character, Option<String>){
+        let mut chs = str.chars();
+        let next = chs.next();
+        let content: String;
+        let mut not = false;
+        match next.unwrap(){
+            '\\' => {
+                // something escaped and special
+                let t = chs.next().unwrap();
+                match t {
+                    'd' => content = "1234567890".to_string(), // it is a digit
+                    'w' => {
+                        content = "1234567890qwertyuiopasdfghjklzxcvbnm_".to_string(); // word char
                     }
-                    None => {
-                        println!("No character");
-                        "".to_string()
+                    's' => content = " \n\t\r".to_string(), // whitespace char
+                    'D' => {
+                        not = true;
+                        content = "1234567890".to_string();
                     }
+                    'W' => {
+                        not = true;
+                        content = "1234567890qwertyuiopasdfghjklzxcvbnm_".to_string(); // word char
+                    }
+                    'S' => {
+                        not = true;
+                        content = " \n\t\r".to_string(); // whitespace char
+                    }
+                    '.' | '*' | '?' | '+' | '\\' | '$' | '^' => content = t.to_string(),
+                    _ => {
+                        println!("Got {} and not an option", t);
+                        content = "".to_string();
+                    }
+                                                                                    
                 }
             }
+            '[' => {
+                // TODO Implement
+                // capturing
+                content = "".to_string();
+            }
+            a => {
+                // normal
+                content = a.to_string();
+            }
         }
+        let leftovers: String = chs.collect();
+
+        (Character{
+            content,
+            not
+        }, match leftovers.as_str() {
+            "" => None,
+            a => Some(a.to_string())
+        })
     }
-    fn print(&self){
-        match self{
-            Self::Character(a) => {
-                println!("{}", a.content.unwrap());
-            },
-            Self::Group(a) => {
-                a.print();
-            },
-            _ =>{
-                ()
-            }
-        }
-    }
-    fn get_tree(&self) -> String{
-        match self{
-            Self::Character(a) => {
-                a.content.unwrap().to_string()
-            }
-            Self::Group(a) => {
-                (*a.content).as_ref().unwrap().get_tree()
-            }
-            _ => {
-                "Other".to_string()
-            }
-        }
+    fn print(&self, offset: &String){
+        println!("{}char: {} {}", offset, self.content, self.not);
     }
 }
 
-impl Character {
-    fn character(&mut self, str: String) -> String{
-        let mut chars = str.chars();
-        let first = chars.next().unwrap();
-        if first.is_alphabetic() {
-            self.content = Some(first);
-        }
-        
-        let leftovers: String = chars.collect();
-        return leftovers.to_string();
-    }
-}
-impl Modifier {
-    fn modifier(&mut self, str: String) -> String{
-        let mut chars = str.chars();
-        let first = str.chars().nth(0).unwrap();
-        let leftovers: String;
-        match first{
-            '+' | '*' | '?' => {
-                self.content = Some(chars.next().unwrap());
-                leftovers = chars.collect();
+impl Modifier{
+    fn new(str: String) -> (Option<Modifier>, Option<String>){
+        let mut chs = str.chars();
+        let mut next = chs.next();
+        let mut start = 0;
+        let mut end = 1;
+        let mut greedy = false;
+        let mut modif = true;
+        match next {
+            Some('+') => {
+                start = 1;
+                end = -1;
             }
-            _ => {
-                self.content = None;
-                leftovers = chars.collect();
+            Some('?') => (),
+            Some('*') => end = -1,
+            Some('{') => {
+                // range
+                // need to collect until the ','
+                let mut first = vec![];
+                next = chs.next();
+                while next.unwrap() != ',' {
+                    first.push(next.unwrap());
+                    next = chs.next();
+                }
+                start = first.iter().collect::<String>().parse::<i32>().unwrap();
+                let mut sec = vec![];
+                next = chs.next();
+                while next.unwrap() != '}' {
+                    sec.push(next.unwrap());
+                    next = chs.next();
+                }
+                let result = sec.iter().collect::<String>().parse::<i32>();
+                match result {
+                    Ok(a) => end = a,
+                    Err(_) => end = -1,
+                }
             }
-        }
-        return leftovers;
-    }
-    fn print(&self){
-        match self.content {
             Some(a) => {
-                println!("{}", a);
-            },
+                println!("Got {} which isnt a modifier", a);
+                modif = false;
+            }
             None =>{
-                ()
+                println!("Tried to parse a modifier with nothing");
+                modif = false;
             }
         }
-    }
-}
-impl Group{
-    fn group(&mut self, str: String) -> String{
-        let mut leftovers = str.chars().rev();
-        let mut ch = leftovers.next().unwrap();
-        let mut group: Vec<char> = vec![];
-        while ch != ')'{
-            match ch{
-                a =>{
-                    group.push(a);
-                }
+        // need to check if greedy
+        let mut leftovers: String = chs.collect();
+        let mut lchs = leftovers.chars();
+        match lchs.next() {
+            Some('?') => {
+                greedy = true;
+                leftovers = lchs.collect();
             }
-            ch = leftovers.next().unwrap();
-        }
-        let mut new_leftovers = leftovers.rev();
-        new_leftovers.next(); // gets rid of the first (
-        let new_str: String = new_leftovers.collect();
-
-        match &mut *self.content{
-            Some(a) => {
-                a.expression(new_str);
-            }
-            None => {
-                self.content = Box::new(Some(Expression::new()));
-                self.content.as_mut().as_mut().unwrap().expression(new_str);
-            }
-        }
-        group.into_iter().rev().collect()
-    }
-    fn print(&self){
-        match self.content.as_ref(){
-            Some(a) =>{
-                println!("(");
-                a.print();
-                println!(")");
-            }
+            Some(_) =>(),
             None => ()
         }
+        if modif == false {
+            leftovers = str;
+        }
+        (match modif{
+            true => {
+                Some(Modifier{
+                    start,
+                    end,
+                    greedy,})
+            }
+            false => None,
+        }, match leftovers.as_str(){
+                "" => None,
+                a => Some(a.to_string()),
+        })
+    }
+    fn print(&self, offset: &String){
+        println!("{}modifier: {}-{}, {}", offset, self.start, self.end, self.greedy);
     }
 }
-impl Term{
-    // returns any leftovers
-    fn parse(&mut self, str: String) -> String{
-        let mut leftovers;
-        match &mut *self.content{
-            Some(a) => {
-                leftovers = a.parse(str);
-            }
-            None => {
-                self.content = Box::new(Some(Parts::Other));
-                leftovers = self.parse(str);
-            }
-        }
-        match leftovers.as_str(){
-            "" => {
-                "".to_string()
+
+impl Group{
+    fn new(str: String) -> Group{
+        // parses an expression
+        // doesnt have the closing bracket
+        let mut capturing = true;
+        let mut exp = str.chars();
+        let content: String;
+        match exp.next().unwrap(){
+            '?' => {
+                // non capturing group
+                capturing = false;
+                exp.next();
+                // this gets rid of the "?:" that makes it not capturing
+                content = exp.collect();
+
             }
             _ => {
-                // try to parse modifier
-                self.next = Some(Modifier{content: None});
-                leftovers = self.next.as_mut().unwrap().modifier(leftovers);
-                leftovers
+                content = str;
             }
         }
+        Group{
+            content: create(content),
+            capturing,
+        }
     }
-    fn print(&self){
-        match self.content.as_ref().as_ref(){
-            Some(a) => {
-                a.print();
-            },
-            _ => ()
+    fn print(&self, offset: &String){
+        let ol = offset.as_str();
+        let mut o = ol.to_string();
+        println!("{} group, {}", offset, self.capturing);
+        o.push('\t');
+        self.content.print(&o)
 
-        }
-        match &self.next{
-            Some(a) => {
-                a.print();
-            },
-            _ => ()
-        }
     }
-    fn get_tree(&self) -> String{
-        let mut str = (*self.content).as_ref().unwrap().get_tree().to_string();
-        match &self.next{
-            Some(a) => {
-                match a.content{
-                    Some(a) => str.push(a),
-                    None => ()
+}
+
+impl Term{
+    fn new(str: String) -> (Term, Option<String>){
+        println!("{}", str);
+        // parse term
+        // Term := Group | Character + Modifier | None
+        let mut exp = str.chars();
+        let mut temp = exp.next();
+        let content: Parts;
+        let leftovers: String;
+        match temp {
+            Some('(') => {
+                let mut group_num = 1;
+                let mut expres = vec![];
+                let mut group_leftovers = vec![];
+                let mut in_group = true;
+                // parse group
+                temp = exp.next();
+                while temp.is_some(){
+                    match temp.unwrap(){
+                        '(' => {
+                            group_num += 1;
+                            expres.push('(');
+                        }
+                        ')' => {
+                            group_num -= 1;
+                            if group_num == 0 {
+                                in_group = false;
+                            }else{
+                                expres.push(')');
+                            }
+                        }
+                        a => {
+                            if in_group {
+                                expres.push(a);
+                            }else {
+                                group_leftovers.push(a);
+                            }
+                        }
+
+                    }
+                    temp = exp.next();
+                }
+                // have group and leftovers (That has modifier)
+                content = Parts::Group(Group::new(expres.iter().collect()));
+                leftovers = group_leftovers.iter().collect();
+            }
+            Some(_) => {
+                // parse character
+                let c = Character::new(str.clone());
+                content = Parts::Character(c.0);
+                leftovers = match c.1 {
+                    Some(a) => a,
+                    None => "".to_string(),
                 }
             }
-            None =>{()}
+            None => {
+                println!("Tried to parse a term with nothing");
+                content = Parts::Other;
+                leftovers = "".to_string();
+            }
         }
-        str
+        // leftovers has the modifier that I still need to parse
+        let m = Modifier::new(leftovers);
+        (Term{
+            content: Box::new(content),
+            modif: m.0
+        }, m.1)
+
+    }
+    fn print(&self, offset: &String){
+        println!("{} Term", offset);
+        let ol = offset.as_str();
+        let mut o = ol.to_string();
+        o.push('\t');
+
+        match self.content.as_ref(){
+            Parts::Character(a) => {
+                a.print(&o);
+            }
+            Parts::Group(a) => {
+                a.print(&o);
+            }
+            _ =>(),
+        }
+        if self.modif.is_some() {
+            self.modif.as_ref().unwrap().print(&o);
+        }
     }
 }
 
 impl Expression {
-    pub fn new() -> Expression{
-        Expression {content: Box::new(None), next: Box::new(None)}
-    }
-    pub fn expression(&mut self, str: String){
-        *self.content = Some(Term{content: Box::new(None), next: None});
-        let leftovers: String = self.content.as_mut().as_mut().unwrap().parse(str);
-        if leftovers != "" {
-            self.next = Box::new(Some(Expression::new()));
-            self.next.as_mut().as_mut().unwrap().expression(leftovers);
+    fn new(str: String) -> Expression {
+        // parse expression and return
+        let t = Term::new(str);
+        Expression{
+            content: t.0,
+            next: match t.1{
+                Some(a) => Box::new(Some(Expression::new(a))),
+                None => Box::new(None),
+            },
         }
     }
-    pub fn print(&self){
-        self.content.as_ref().as_ref().unwrap().print();
-        match self.next.as_ref(){
-            Some(exp) => exp.print(),
-            None => return,
+    fn print(&self, offset: &String){
+        println!("{} Expression", offset);
+        let ol = offset.as_str();
+        let mut o = ol.to_string();
+        o.push('\t');
+        self.content.print(&o);
+        if (*self.next).is_some() {
+            (*self.next).as_ref().unwrap().print(&o);
         }
     }
-    pub fn get_tree(&self) -> String{
-        let mut str = (*self.content).as_ref().unwrap().get_tree();
-        match self.next.as_ref(){
-            Some(a) => {
-                str.push_str(" - ");
-                str.push_str(a.get_tree().as_str())
-            }
-            None => {()}
+}
+impl Regex{
+    pub fn print(&self, offset: &String){
+        println!("{} Regex", offset);
+        let ol = offset.as_str();
+        let mut o = ol.to_string();
+        o.push('\t');
+        self.content.print(&o);
+    }
+}
+impl Alternator{
+    fn print(&self, offset: &String){
+        println!("{} Alt", offset);
+        let ol = offset.as_str();
+        let mut o = ol.to_string();
+        o.push('\t');
+        self.lhs.print(&o);
+        if self.rhs.is_some() {
+            self.rhs.as_ref().unwrap().print(&o);
         }
+    }
+}
 
-        return str;
+pub fn create(str: String) -> Regex{
+    let mut regex = str.chars();
+    let mut lhs = vec![];
+    let mut rhs = vec![];
+    let mut in_group = 0;
+    let mut temp = regex.next();
+    let mut right = false;
+    while temp.is_some() {
+        match temp.unwrap() {
+            '(' => {
+                in_group += 1;
+                if !right {
+                    lhs.push('(');
+                }else{
+                    rhs.push('(');
+                }
+            }
+            ')' => {
+                in_group -= 1;
+                if !right {
+                    lhs.push(')');
+                }else{
+                    rhs.push(')');
+                }
+            }
+            '|' => {
+                if in_group == 0 {
+                    right = true;
+                }
+            }
+            a => {
+                if !right {
+                    lhs.push(a);
+                }else{
+                    rhs.push(a);
+                }
+            }
+        }
+        temp = regex.next();
+    }
+    let rhs_str: String = rhs.iter().collect();
+    Regex{
+        content: Alternator{
+            lhs: Expression::new(lhs.iter().collect()),
+            rhs: match rhs_str.as_str() {
+                "" => None,
+                a => Some(Expression::new(a.to_string())),
+            }
+        }
     }
 }

@@ -2,18 +2,15 @@
 mod parser;
 #[path = "regex/compiler.rs"]
 mod compiler;
+#[path = "regex/matcher.rs"]
+mod matcher;
 
 
 fn main() {
-    let str = "a(b)c+";
-    let ast = parse(str.to_string());
+    let regex = parser::create("a(b)c+".to_string());
+    regex.print(&"".to_string());
 
-    let fsm = compiler::compile(ast);
+    let fsm = compiler::compile(regex);
+    
     fsm.print();
-}
-
-fn parse(str: String) -> parser::Expression{
-    let mut ast: parser::Expression = parser::Expression::new();
-    ast.expression(str.to_string());
-    ast
 }
