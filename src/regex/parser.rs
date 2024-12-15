@@ -14,8 +14,8 @@ pub(crate) struct Character{
     // characters: a, b, c, etc..
     // char types: \d for digit, \w for word character
     // character classes: [AEIOU] for one letter in the class
-    content: String,
-    not: bool,
+    pub(crate) content: String,
+    pub(crate) not: bool,
 
 }
 pub(crate) struct Modifier{
@@ -25,39 +25,39 @@ pub(crate) struct Modifier{
     // * : 0 or more
     // {x, y} : range between x and y times
     // ? : after a modifier, makes it lazy
-    start: i32, // has to have at least this many
-    end: i32, // -1 means it is just more
-    greedy: bool, // stops as soon as possible
+    pub(crate) start: i32, // has to have at least this many
+    pub(crate) end: i32, // -1 means it is just more
+    pub(crate) greedy: bool, // stops as soon as possible
 
 }
 pub(crate) struct Group{
     // can have
     // ( ... ) : capturing
     // (?: ... ) : non capturing
-    content: Regex,
-    capturing: bool,
+    pub(crate) content: Regex,
+    pub(crate) capturing: bool,
 }
 pub(crate) struct Term{
     // Group + Modifier | None
     // Character + Modifier | None
-    content: Box<Parts>,
-    modif: Option<Modifier>,
+    pub(crate) content: Box<Parts>,
+    pub(crate) modif: Option<Modifier>,
 }
 pub(crate) struct Expression{
     // Term + Expression | None
-    content: Term,
-    next: Box<Option<Expression>>,
+    pub(crate) content: Term,
+    pub(crate) next: Box<Option<Expression>>,
 
 }
 pub(crate) struct Alternator{
     // lhs | rhs
     // checks if matches either
     // both are expressions
-    lhs: Expression,
-    rhs: Option<Expression>,
+    pub(crate) lhs: Expression,
+    pub(crate) rhs: Option<Expression>,
 }
 pub struct Regex{
-    content: Alternator,
+    pub(crate) content: Alternator,
 }
 impl Character{
     fn new(str: String) -> (Character, Option<String>){
