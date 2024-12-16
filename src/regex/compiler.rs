@@ -5,23 +5,24 @@ use crate::parser::Parts;
 
 
 pub struct FSM{
-    nodes: BTreeMap<i32, Node>,
-    edges: Vec<Edge>,
+    pub(crate) nodes: BTreeMap<i32, Node>,
+    pub(crate) edges: Vec<Edge>,
 }
-struct Node{
-    group: i32,
+pub(crate) struct Node{
+    pub(crate) group: i32,
+    pub(crate) edges: Vec<usize>, // points to index in edges
 }
-struct Edge{
-    n1: i32, // index in the vec
-    n2: i32,
-    rule: Rule
+pub(crate) struct Edge{
+    pub(crate) n1: i32, // index in the vec
+    pub(crate) n2: i32,
+    pub(crate) rule: Rule
 }
-struct Rule{
+pub(crate) struct Rule{
     // either an epsilon, which doesnt consume a character
     // something that consumes a character
 
-    rule: String,
-    group: i32, // if in a group, it will return the character upon consumption
+    pub(crate) rule: String,
+    pub(crate) group: i32, // if in a group, it will return the character upon consumption
 }
 
 pub fn compile(ast: parser::Regex) -> FSM{
@@ -29,10 +30,9 @@ pub fn compile(ast: parser::Regex) -> FSM{
         nodes: BTreeMap::new(),
         edges: vec![],
     };
-    fsm.nodes.insert(0, Node{group: 0});
+    fsm.nodes.insert(0, Node{group: 0, edges: vec![]});
 
     generate_fsm(&mut fsm, Parts::Regex(ast), 0, 0, None);
-
     fsm
 }
 
@@ -41,7 +41,7 @@ fn generate_fsm(fsm: &mut FSM, p: Parts, group: i32, start: i32, end: Option<i32
     match p {
         Parts:: Character(c) => {
             let i = fsm.nodes.len() as i32;
-            fsm.nodes.insert(i, Node{group});
+            fsm.nodes.insert(i, Node{group, edges: vec![]});
             fsm.edges.push(Edge{
                 n1: start,
                 n2: i,
@@ -50,6 +50,7 @@ fn generate_fsm(fsm: &mut FSM, p: Parts, group: i32, start: i32, end: Option<i32
                     group
                 }
             });
+            fsm.nodes.get_mut(&start).unwrap().edges.push(fsm.edges.len() - 1);
             return i;
         }
         Parts:: Modifier(m) => {
@@ -67,6 +68,7 @@ fn generate_fsm(fsm: &mut FSM, p: Parts, group: i32, start: i32, end: Option<i32
                         group
                     }
                 });
+                fsm.nodes.get_mut(&end.unwrap()).unwrap().edges.push(fsm.edges.len() - 1);
             }
             if m.start == 0 {
                 fsm.edges.push(Edge{
@@ -77,15 +79,21 @@ fn generate_fsm(fsm: &mut FSM, p: Parts, group: i32, start: i32, end: Option<i32
                         group
                     }
                 });
+                fsm.nodes.get_mut(&start).unwrap().edges.push(fsm.edges.len() - 1);
             }
             return end.unwrap();
+            // to implememnt ranges
+            // get all the nodes and edges that go between the start and end node
+            // duplicate them m.start times
+            // duplicate m.end - m.start more times
+            // create epsilons from m.start + i to the end node to create the option to leave
         }
         Parts::Group(g) => {
             // TODO implement non capturing groups
             let ng = group + 1;
             let l = generate_fsm(fsm, Parts::Regex(g.content), ng, start, None);
             let i = fsm.nodes.len() as i32;
-            fsm.nodes.insert(i, Node{group});
+            fsm.nodes.insert(i, Node{group, edges: vec![]});
             fsm.edges.push(Edge{
                 n1: l,
                 n2: i,
@@ -94,6 +102,7 @@ fn generate_fsm(fsm: &mut FSM, p: Parts, group: i32, start: i32, end: Option<i32
                     group
                 }
             });
+            fsm.nodes.get_mut(&l).unwrap().edges.push(fsm.edges.len() - 1);
             return i;
         }
         Parts::Term(t) => {
@@ -119,7 +128,7 @@ fn generate_fsm(fsm: &mut FSM, p: Parts, group: i32, start: i32, end: Option<i32
                 r = generate_fsm(fsm, Parts::Expression(a.rhs.unwrap()), group, start, None);
             }
             let i = fsm.nodes.len() as i32;
-            fsm.nodes.insert(i, Node{group});
+            fsm.nodes.insert(i, Node{group, edges: vec![]});
             fsm.edges.push(Edge{
                 n1: l,
                 n2: i,
@@ -128,6 +137,7 @@ fn generate_fsm(fsm: &mut FSM, p: Parts, group: i32, start: i32, end: Option<i32
                     group
                 }
             });
+            fsm.nodes.get_mut(&l).unwrap().edges.push(fsm.edges.len() - 1);
             if r != -1 {
                 fsm.edges.push(Edge{
                     n1: r,
@@ -137,6 +147,7 @@ fn generate_fsm(fsm: &mut FSM, p: Parts, group: i32, start: i32, end: Option<i32
                         group
                     }
                 });
+                fsm.nodes.get_mut(&r).unwrap().edges.push(fsm.edges.len() - 1);
             }
             return i;
         }

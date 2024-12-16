@@ -11,6 +11,12 @@ fn main() {
     regex.print(&"".to_string());
 
     let fsm = compiler::compile(regex);
-    
     fsm.print();
+
+    let matches = matcher::match_string(&fsm, "ubdisafbiabcccccoisnadfiuabcbbccabc".to_string());
+
+    match matches{
+        Some(a) => for i in a { i.print(None) },
+        None => println!("Nothing matched"),
+    };
 }
