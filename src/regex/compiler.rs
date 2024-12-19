@@ -15,7 +15,8 @@ pub(crate) struct Node{
 pub(crate) struct Edge{
     pub(crate) n1: i32, // index in the vec
     pub(crate) n2: i32,
-    pub(crate) rule: Rule
+    pub(crate) rule: Rule,
+    pub(crate) taken: Option<bool>
 }
 pub(crate) struct Rule{
     // either an epsilon, which doesnt consume a character
@@ -48,7 +49,8 @@ fn generate_fsm(fsm: &mut FSM, p: Parts, group: i32, start: i32, end: Option<i32
                 rule: Rule{
                     rule: c.content,
                     group
-                }
+                },
+                taken: None
             });
             fsm.nodes.get_mut(&start).unwrap().edges.push(fsm.edges.len() - 1);
             return i;
@@ -66,7 +68,8 @@ fn generate_fsm(fsm: &mut FSM, p: Parts, group: i32, start: i32, end: Option<i32
                     rule: Rule{
                         rule: "".to_string(),
                         group
-                    }
+                    },
+                    taken: None
                 });
                 fsm.nodes.get_mut(&end.unwrap()).unwrap().edges.push(fsm.edges.len() - 1);
             }
@@ -77,7 +80,8 @@ fn generate_fsm(fsm: &mut FSM, p: Parts, group: i32, start: i32, end: Option<i32
                     rule: Rule{
                         rule: "".to_string(),
                         group
-                    }
+                    },
+                    taken: Some(false), // can only take this edge once
                 });
                 fsm.nodes.get_mut(&start).unwrap().edges.push(fsm.edges.len() - 1);
             }
@@ -100,7 +104,8 @@ fn generate_fsm(fsm: &mut FSM, p: Parts, group: i32, start: i32, end: Option<i32
                 rule: Rule{
                     rule: "".to_string(),
                     group
-                }
+                },
+                taken: None
             });
             fsm.nodes.get_mut(&l).unwrap().edges.push(fsm.edges.len() - 1);
             return i;
@@ -135,7 +140,8 @@ fn generate_fsm(fsm: &mut FSM, p: Parts, group: i32, start: i32, end: Option<i32
                 rule: Rule{
                     rule: "".to_string(),
                     group
-                }
+                },
+                taken: None
             });
             fsm.nodes.get_mut(&l).unwrap().edges.push(fsm.edges.len() - 1);
             if r != -1 {
@@ -145,7 +151,8 @@ fn generate_fsm(fsm: &mut FSM, p: Parts, group: i32, start: i32, end: Option<i32
                     rule: Rule{
                         rule: "".to_string(),
                         group
-                    }
+                    },
+                    taken: None
                 });
                 fsm.nodes.get_mut(&r).unwrap().edges.push(fsm.edges.len() - 1);
             }

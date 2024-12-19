@@ -157,14 +157,8 @@ impl Modifier{
                     Err(_) => end = -1,
                 }
             }
-            Some(a) => {
-                println!("Got {} which isnt a modifier", a);
-                modif = false;
-            }
-            None =>{
-                println!("Tried to parse a modifier with nothing");
-                modif = false;
-            }
+            Some(_) => modif = false,
+            None => modif = false,
         }
         // need to check if greedy
         let mut leftovers: String = chs.collect();

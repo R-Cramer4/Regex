@@ -36,14 +36,16 @@ pub fn match_string(fsm: &compiler::FSM, str: String) -> Option<Vec<Group>>{
     for i in 0..max {
         let mut chs = str.chars();
         let g = match i {
-            0 => bfs(fsm, chs.collect()),
+            0 => find_match(fsm, chs.collect(), 0),
             a => {
                 chs.nth(a - 1);
-                bfs(fsm, chs.collect())
+                find_match(fsm, chs.collect(), a as i32)
             }
         };
         match g {
-            Some(a) => groups.push(a),
+            Some(mut a) => {
+                groups.append(&mut a);
+            },
             None => (),
         }
     }
@@ -52,49 +54,97 @@ pub fn match_string(fsm: &compiler::FSM, str: String) -> Option<Vec<Group>>{
         false => Some(groups),
     }
 }
-fn bfs(fsm: &compiler::FSM, str: String) -> Option<Group>{
-    // make a queue of nodes, this queue is the nodes reached on n characters consumed
-    let mut q: VecDeque<&compiler::Node> = VecDeque::new();
-    q.push_back(fsm.nodes.get(&0).unwrap());
 
+fn find_match(fsm: &compiler::FSM, str: String, start: i32) -> Option<Vec<Group>>{
+    //TODO implement groups
+        
+    // How to match
+    // get list of all nodes we can get to from 0 characters
+    // from all of those nodes, get list of all nodes that can be accessed with 1 char
+    // repeat until all characters are consumed or no more characters can be consumed
+    // 
+    // returns all matches starting at this location
+    //
+    // have a list of nodes
+    // pass along with the character
+    // returns a new list of nodes
+    // if one of the nodes is the end, match found
+    // if length == 0, we are done and can return
+    let mut strings: Vec<String> = vec![];
+
+    let mut nodes: Vec<&compiler::Node> = vec![fsm.nodes.get(&0)?];
     let mut chs = str.chars();
-    while !q.is_empty() {
-        // bfs
-        let ch = chs.next();
-        if ch.is_none() {
-            return None;
-        }
-        let n = q.pop_front().unwrap();
-        // TODO check if n is the end node, and if so we are done and can return
-        let mut epsi_queue: VecDeque<&compiler::Node> = VecDeque::new();
-        // n.edges has all the edges starting here
-        for i in 0..n.edges.len() {
-            let e = fsm.edges.get(i);
-            if e.is_none() {
-                println!("Searched for an edge that doesnt exist");
-                return None;
+    let mut string = "".to_string();
+
+    while !nodes.is_empty() {
+        let c = match chs.next(){
+            Some(a) => a,
+            None => break,
+        };
+        get_nodes(fsm, &mut nodes, c);
+
+        // now need to check if one of the nodes is the last node
+        for i in nodes.iter() {
+            if i.edges.len() == 0 {
+                // last node
+                strings.push(string.clone());
             }
-            let n2 = e.unwrap().n2;
-            let r = &e.unwrap().rule;
+        }
+        string.push(c);
+    }
+    // Here we have all the different strings that match our regex
+    if strings.is_empty() {
+        return None;
+    }
+    
+    let mut groups: Vec<Group> = vec![];
+    for i in strings.iter() {
+        groups.push(Group{
+            str: i.to_string(),
+            loc: start,
+            groups: None, // TODO implement
+        });
+    }
+    Some(groups)
+}
+fn get_nodes<'a>(fsm: &'a compiler::FSM, nodes: &mut Vec<&'a compiler::Node>, c: char){
+    // go through nodes until consumes a character
+    // then we can add that node to the consumption list
 
-            match r.rule.as_str() {
+    let mut q: VecDeque<&compiler::Node> = VecDeque::new();
+    for i in nodes.iter() {
+        q.push_back(i);
+    }
+    nodes.clear();
+    // will add nodes to n when we reach them
+
+    // q has all the nodes we started with
+    while !q.is_empty() {
+        let n = q.pop_front().unwrap();
+        // loop through n's edges and get all next nodes
+        for i in n.edges.iter() {
+            let e = match fsm.edges.get(*i){
+                Some(a) => a,
+                None => break,
+            };
+            if e.taken.is_some_and(|x| x) {
+                continue; // cant take this rule
+            }
+            match e.rule.rule.as_str() {
                 "" => {
-                    q.push_back(fsm.nodes.get(&n2).unwrap());
-
-                    //TODO check if not already in queue
-                    epsi_queue.push_back(fsm.nodes.get(&n2).unwrap());
-                    
-                    
+                    // is an epsilon, we can't stop here, need to consume a character
+                    q.push_back(fsm.nodes.get(&e.n2).unwrap());
+                    if e.n2 == (fsm.nodes.len() - 1) as i32 {
+                        nodes.push(fsm.nodes.get(&e.n2).unwrap());
+                    }
                 }
                 a => {
-                    if a.contains(ch.unwrap()) {
-                        q.push_back(fsm.nodes.get(&n2).unwrap());
+                    if a.contains(c) {
+                        // can reach this node and have consumed 1 char so we add to final list
+                        nodes.push(fsm.nodes.get(&e.n2).unwrap());
                     }
                 }
             }
         }
-
     }
-
-    None
 }

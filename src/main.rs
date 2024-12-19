@@ -8,10 +8,10 @@ mod matcher;
 
 fn main() {
     let regex = parser::create("a(b)c+".to_string());
-    regex.print(&"".to_string());
+    //regex.print(&"".to_string());
 
     let fsm = compiler::compile(regex);
-    fsm.print();
+    //fsm.print();
 
     let matches = matcher::match_string(&fsm, "ubdisafbiabcccccoisnadfiuabcbbccabc".to_string());
 
