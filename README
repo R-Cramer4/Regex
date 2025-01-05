@@ -1,0 +1,18 @@
+## Regex Library in Rust
+
+Features implemented:
+- Basic character matching
+- \d for digits
+- \w for word characters (digits, letters, and _)
+- \s for whitespace
+- \D for not digits
+- \W for not word characters
+- \S for not whitespace
+
+Modifiers
+- + for 1 or more
+- ? for 0 or 1
+- * for 0 or more
+
+Basic testing only, so the features implemented might not work as described.
+Complexity is O(N + K) where N is the length of the string to search in and K is the length of the regex
