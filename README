@@ -1,4 +1,4 @@
-## Regex Library in Rust
+Regex Library in Rust
 
 Features implemented:
 - Basic character matching
